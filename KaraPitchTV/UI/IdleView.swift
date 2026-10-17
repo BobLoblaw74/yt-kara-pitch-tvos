@@ -8,10 +8,6 @@ struct IdleView: View {
     let session: KaraSession
     @State private var phoneURL = LocalAddress.phoneURL()
     @FocusState private var searchFocused: Bool
-    #if DEBUG
-    @State private var showProbe = false
-    @State private var seeding = false
-    #endif
 
     var body: some View {
         HStack(alignment: .center, spacing: 80) {
@@ -35,9 +31,6 @@ struct IdleView: View {
                 try? await Task.sleep(for: Self.addressRefresh)
             }
         }
-        #if DEBUG
-        .fullScreenCover(isPresented: $showProbe) { ProbeView() }
-        #endif
     }
 
     private var details: some View {
@@ -53,19 +46,6 @@ struct IdleView: View {
             Text(phoneURL ?? "No network").font(.system(size: 52, weight: .bold)).foregroundStyle(Theme.orange)
             UpNextList(queue: session.queue.queue).padding(.top, 56)
             Spacer()
-            #if DEBUG
-            HStack(spacing: 40) {
-                Button(seeding ? "Adding…" : "Add test songs") {
-                    seeding = true
-                    Task {
-                        await DebugSeed.addTestSongs(to: session)
-                        seeding = false
-                    }
-                }
-                .disabled(seeding)
-                Button("Stream probe") { showProbe = true }
-            }
-            #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }

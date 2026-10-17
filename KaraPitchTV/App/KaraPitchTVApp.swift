@@ -14,9 +14,6 @@ struct KaraPitchTVApp: App {
                     let server = HTTPServer(router: session.makeRouter())
                     server.start()
                     self.server = server
-                    #if DEBUG
-                    if ProcessInfo.processInfo.arguments.contains("-seed") { await DebugSeed.addTestSongs(to: session) }
-                    #endif
                 }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
