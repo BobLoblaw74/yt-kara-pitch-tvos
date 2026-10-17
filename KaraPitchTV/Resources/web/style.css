@@ -30,6 +30,8 @@ h2 { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: upp
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
 
 .field { display: block; margin-bottom: 14px; }
+.singer-card .field { margin-bottom: 6px; }
+.singer-card p { margin: 0; }
 .field > span { display: block; font-size: 13px; color: var(--dim); margin-bottom: 6px; }
 input[type=url], input[type=text] {
   width: 100%; font: inherit; font-size: 17px; color: var(--text);

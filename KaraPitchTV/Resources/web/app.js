@@ -59,6 +59,10 @@ document.querySelectorAll(".stepper").forEach((s) => {
 // ---------- add ----------
 const singerInput = $("singer");
 try { singerInput.value = localStorage.getItem("singer") || ""; } catch {}
+// Remembered as soon as it's typed, not only when a song is added.
+singerInput.addEventListener("change", () => {
+  try { localStorage.setItem("singer", singerInput.value.trim()); } catch {}
+});
 
 if (navigator.clipboard?.readText) {
   $("paste").hidden = false;

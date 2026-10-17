@@ -16,6 +16,14 @@
   </header>
 
   <main>
+    <section class="card singer-card">
+      <label class="field">
+        <span>Who's singing?</span>
+        <input id="singer" type="text" maxlength="40" placeholder="Your name" autocomplete="nickname">
+      </label>
+      <p class="dim small">Used for songs you add from search or from a link.</p>
+    </section>
+
     <section class="card search">
       <h2>Search YouTube</h2>
       <form id="searchForm" class="search-row" autocomplete="off">
@@ -25,21 +33,17 @@
       <label class="check"><input id="karaoke" type="checkbox" checked> Add “karaoke” to the search</label>
       <p id="searchStatus" class="dim small" hidden></p>
       <ul id="results" class="results"></ul>
-      <p class="dim small">Results are added with the singer and key below.</p>
+      <p class="dim small">Results are added with your name above and the key below.</p>
     </section>
 
     <form id="add" class="card add" autocomplete="off">
-      <h2>Singer, key, or paste a link</h2>
+      <h2>Key, or paste a link</h2>
       <label class="field">
         <span>YouTube link</span>
         <div class="paste-row">
           <input id="url" type="url" inputmode="url" placeholder="https://youtu.be/…">
           <button type="button" id="paste" class="ghost" hidden>Paste</button>
         </div>
-      </label>
-      <label class="field">
-        <span>Singer</span>
-        <input id="singer" type="text" maxlength="40" placeholder="Your name">
       </label>
       <div class="field">
         <span>Key</span>
