@@ -1,20 +1,22 @@
 import SwiftUI
 
-/// Opened with a swipe down during a song: Skip, Restart and a key stepper (Search arrives with
-/// TV search). Closes on Back, or by itself after `idleTimeout` without input.
+/// Opened with a swipe down during a song: Search, Skip, Restart and a key stepper. Closes on Back,
+/// or by itself after `idleTimeout` without input.
 struct ControlOverlay: View {
     static let idleTimeout: Duration = .seconds(8)
 
     let session: KaraSession
     let onClose: () -> Void
 
-    private enum Control: Hashable { case skip, restart, keyDown, keyUp }
+    private enum Control: Hashable { case search, skip, restart, keyDown, keyUp }
     @FocusState private var focused: Control?
     /// Bumped on every input; the close timer restarts whenever it changes.
     @State private var lastInput = 0
 
     var body: some View {
         HStack(spacing: 48) {
+            Button("Search", systemImage: "magnifyingglass") { act { session.searchOpen = true } }
+                .focused($focused, equals: .search)
             Button("Skip", systemImage: "forward.end.fill") { act { session.skip(notice: "Skipped") } }
                 .focused($focused, equals: .skip)
             Button("Restart song", systemImage: "backward.end.fill") {

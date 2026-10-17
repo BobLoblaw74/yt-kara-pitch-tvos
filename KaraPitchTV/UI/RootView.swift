@@ -26,6 +26,7 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: session.notice)
         .animation(.easeInOut(duration: 0.35), value: session.banner)
+        .fullScreenCover(isPresented: Bindable(session).searchOpen) { SearchView(session: session) }
     }
 }
 

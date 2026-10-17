@@ -27,6 +27,8 @@ final class KaraSession {
     private(set) var queue = QueueState()
     /// A short message for the TV screen, cleared after `noticeDuration`.
     private(set) var notice: String?
+    /// The TV search screen is showing (over whatever is playing).
+    var searchOpen = false
     /// The "added to queue" banner showing now. Songs queued in a burst each get their turn.
     private(set) var banner: QueueEntry?
 
@@ -103,6 +105,20 @@ final class KaraSession {
     func skip(notice: String) {
         notify(notice)
         player.skip()
+    }
+
+    func search(_ query: String, addKaraoke: Bool) async throws -> [SearchResult] {
+        try await SearchService.search(query, addKaraoke: addKaraoke, api: api)
+    }
+
+    /// Adds a search result picked on the TV; it's ready at once since the result carries its details.
+    func addFromSearch(_ result: SearchResult, singer: String, key: Int) async {
+        do {
+            let meta = VideoMeta(title: result.title, uploader: result.channel, thumb: result.thumb, durationSec: result.durationSec)
+            try await store.add(url: result.url, singer: singer, key: key, meta: meta)
+        } catch {
+            notify(String(describing: error))
+        }
     }
 
     /// Back while a song plays: the first press warns, a second within `backConfirm` stops the song.

@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Shown while nothing is ready to play: the heading, the phone URL with its QR code, and the next
-/// songs in the queue. Search arrives with TV search (Phase 5).
+/// Shown while nothing is ready to play: the heading, Search (focused), the phone URL with its QR
+/// code, and the next songs in the queue.
 struct IdleView: View {
     static let addressRefresh: Duration = .seconds(15)
 
     let session: KaraSession
     @State private var phoneURL = LocalAddress.phoneURL()
+    @FocusState private var searchFocused: Bool
     #if DEBUG
     @State private var showProbe = false
     @State private var seeding = false
@@ -27,6 +28,7 @@ struct IdleView: View {
         }
         .padding(.horizontal, 112)
         .padding(.vertical, 80)
+        .defaultFocus($searchFocused, true)
         .task {
             while !Task.isCancelled {
                 phoneURL = LocalAddress.phoneURL()
@@ -42,9 +44,12 @@ struct IdleView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Karaoke").font(.system(size: 104, weight: .black)).foregroundStyle(Theme.text)
             Capsule().fill(Theme.accent).frame(width: 240, height: 12).padding(.top, 12)
-            Text("Add songs from your phone").font(.system(size: 48, weight: .semibold)).foregroundStyle(Theme.text)
+            Text("Search on the TV, or add from your phone").font(.system(size: 48, weight: .semibold)).foregroundStyle(Theme.text)
                 .padding(.top, 56)
-            Text("Scan the code, or open").font(.system(size: 36)).foregroundStyle(Theme.textDim).padding(.top, 28)
+            Button("Search songs", systemImage: "magnifyingglass") { session.searchOpen = true }
+                .focused($searchFocused)
+                .padding(.top, 28)
+            Text("On your phone: scan the code, or open").font(.system(size: 36)).foregroundStyle(Theme.textDim).padding(.top, 28)
             Text(phoneURL ?? "No network").font(.system(size: 52, weight: .bold)).foregroundStyle(Theme.orange)
             UpNextList(queue: session.queue.queue).padding(.top, 56)
             Spacer()
