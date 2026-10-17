@@ -4,7 +4,7 @@ import UIKit
 
 /// What the Siri Remote asks of the player (SPEC §6.2).
 enum RemoteAction: Equatable {
-    case keyUp, keyDown, seekBack, seekForward, skip, togglePause, back
+    case keyUp, keyDown, seekBack, seekForward, skip, togglePause, back, openControls
 }
 
 /// Full-screen `AVPlayerLayer` that reads the Siri Remote as `UIPress` types, so directional
@@ -13,6 +13,15 @@ final class PlayerHostController: UIViewController {
     static let holdToSkip: Duration = .seconds(1)
 
     var onAction: (RemoteAction) -> Void = { _ in }
+    /// False while the control overlay is open, so its buttons get the focus and the presses.
+    var takesFocus = true {
+        didSet {
+            guard takesFocus != oldValue else { return }
+            (view as? PlayerLayerView)?.focusable = takesFocus
+            setNeedsFocusUpdate()
+            updateFocusIfNeeded()
+        }
+    }
     private let player: AVPlayer
     /// Bumped on each right press, so a hold timer can tell whether it's still the same press.
     private var rightPress = 0
@@ -31,8 +40,15 @@ final class PlayerHostController: UIViewController {
         view.playerLayer.player = player
         view.playerLayer.videoGravity = .resizeAspect
         view.backgroundColor = .black
+        // Swipes on the clickpad, not clicks: the indirect touch type keeps them apart from presses.
+        let swipe = UISwipeGestureRecognizer(target: self, action: #selector(swipedDown))
+        swipe.direction = .down
+        swipe.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirect.rawValue)]
+        view.addGestureRecognizer(swipe)
         self.view = view
     }
+
+    @objc private func swipedDown() { onAction(.openControls) }
 
     override var preferredFocusEnvironments: [any UIFocusEnvironment] { [view] }
 
@@ -83,11 +99,13 @@ final class PlayerHostController: UIViewController {
 private final class PlayerLayerView: UIView {
     override class var layerClass: AnyClass { AVPlayerLayer.self }
     var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
-    override var canBecomeFocused: Bool { true }
+    var focusable = true
+    override var canBecomeFocused: Bool { focusable }
 }
 
 struct PlayerHost: UIViewControllerRepresentable {
     let player: AVPlayer
+    var takesFocus = true
     let onAction: (RemoteAction) -> Void
 
     func makeUIViewController(context: Context) -> PlayerHostController {
@@ -98,5 +116,6 @@ struct PlayerHost: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: PlayerHostController, context: Context) {
         controller.onAction = onAction
+        controller.takesFocus = takesFocus
     }
 }

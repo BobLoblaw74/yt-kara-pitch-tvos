@@ -15,24 +15,42 @@ struct RootView: View {
                 PlayerScreen(session: session, entry: entry)
             }
             if let notice = session.notice {
+                // Below the up-next ticker when one is showing.
                 NoticeView(text: notice).padding(.top, 144).transition(.opacity)
+            }
+            if let banner = session.banner {
+                AddedBanner(entry: banner, position: (session.queue.queue.firstIndex { $0.id == banner.id } ?? -1) + 1)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.2), value: session.notice)
+        .animation(.easeInOut(duration: 0.35), value: session.banner)
     }
 }
 
 private struct PlayerScreen: View {
     let session: KaraSession
     let entry: QueueEntry
+    @State private var controlsOpen = false
 
     var body: some View {
         let snapshot = session.player.snapshot
+        let upcoming = session.queue.queue.filter { $0.status != .error }
         ZStack {
-            PlayerHost(player: session.player.player, onAction: handle).ignoresSafeArea()
+            PlayerHost(player: session.player.player, takesFocus: !controlsOpen, onAction: handle).ignoresSafeArea()
             if snapshot.durationMs == 0 { LoadingCard(entry: entry).ignoresSafeArea() }
             if snapshot.paused && snapshot.durationMs > 0 { NoticeView(text: "Paused") }
+            if !upcoming.isEmpty {
+                Ticker(entries: upcoming).frame(maxHeight: .infinity, alignment: .top).ignoresSafeArea(edges: .top)
+            }
+            if controlsOpen {
+                ControlOverlay(session: session) { controlsOpen = false }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: controlsOpen)
     }
 
     private func handle(_ action: RemoteAction) {
@@ -44,6 +62,7 @@ private struct PlayerScreen: View {
         case .skip: session.skip(notice: "Skipped")
         case .togglePause: session.player.togglePause()
         case .back: session.backPressed()
+        case .openControls: controlsOpen = true
         }
     }
 }

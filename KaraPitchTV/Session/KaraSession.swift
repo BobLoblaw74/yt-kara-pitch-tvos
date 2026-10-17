@@ -16,6 +16,7 @@ enum Phase: Equatable, Sendable {
 final class KaraSession {
     static let countInSeconds = 5
     static let noticeDuration: Duration = .seconds(2)
+    static let bannerDuration: Duration = .seconds(4)
     private static let retryCodes: Set<Int> = [403, 410]
     static let backConfirm: Duration = .seconds(3)
 
@@ -26,6 +27,8 @@ final class KaraSession {
     private(set) var queue = QueueState()
     /// A short message for the TV screen, cleared after `noticeDuration`.
     private(set) var notice: String?
+    /// The "added to queue" banner showing now. Songs queued in a burst each get their turn.
+    private(set) var banner: QueueEntry?
 
     @ObservationIgnored private let api: InnerTubeAPI
     @ObservationIgnored private let resolver: StreamResolver
@@ -56,6 +59,14 @@ final class KaraSession {
                 }
             },
             Task { await loop() },
+            Task { [store] in
+                for await entry in store.added {
+                    self.banner = entry
+                    try? await Task.sleep(for: Self.bannerDuration)
+                    self.banner = nil
+                    try? await Task.sleep(for: .milliseconds(400))  // let it slide out before the next one
+                }
+            },
         ]
     }
 
