@@ -14,6 +14,7 @@ struct RootView: View {
             case let .playing(entry):
                 PlayerScreen(session: session, entry: entry)
             }
+            FloatersOverlay(floaters: session.floaters)
             if let notice = session.notice {
                 // Below the ticker.
                 NoticeView(text: notice).padding(.top, 176).transition(.opacity)

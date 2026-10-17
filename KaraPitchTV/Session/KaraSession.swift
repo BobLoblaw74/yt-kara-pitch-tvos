@@ -19,6 +19,8 @@ final class KaraSession {
     static let bannerDuration: Duration = .seconds(4)
     private static let retryCodes: Set<Int> = [403, 410]
     static let backConfirm: Duration = .seconds(3)
+    /// Oldest emojis go first past this, so a flood of presses can't fill the screen.
+    static let maxFloaters = 36
 
     let store: QueueStore
     let player = KaraPlayer()
@@ -35,6 +37,8 @@ final class KaraSession {
     /// Every singer seen while the app is open, most recently used first. Names stay after their
     /// songs leave the queue, and go when the app quits.
     private(set) var singers: [String] = []
+    /// Reaction emojis on screen now; each leaves after `Floater.lifetime`.
+    private(set) var floaters: [Floater] = []
 
     @ObservationIgnored private let api: InnerTubeAPI
     @ObservationIgnored private let resolver: StreamResolver
@@ -89,7 +93,7 @@ final class KaraSession {
             session: { await self.apiView() },
             search: { [api] query, addKaraoke in try await SearchService.search(query, addKaraoke: addKaraoke, api: api) },
             webFile: WebFiles.data,
-            react: { reaction in await self.reactions.play(reaction) }
+            react: { reaction in await self.react(reaction) }
         )
     }
 
@@ -141,6 +145,19 @@ final class KaraSession {
         } else {
             lastBackAt = now
             notify("Press Back again to stop this song")
+        }
+    }
+
+    /// A phone's reaction: its sound, plus a burst of emojis that float up and leave.
+    func react(_ reaction: Reaction) {
+        reactions.play(reaction)
+        var rng = SystemRandomNumberGenerator()
+        let burst = Floater.burst(for: reaction, using: &rng)
+        floaters = Array((floaters + burst).suffix(Self.maxFloaters))
+        let ids = Set(burst.map(\.id))
+        Task {
+            try? await Task.sleep(for: Floater.lifetime)
+            floaters.removeAll { ids.contains($0.id) }
         }
     }
 

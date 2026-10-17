@@ -6,9 +6,10 @@ enum Reaction: String, CaseIterable, Sendable {
     case clap, ovation, boo, laugh
 }
 
-/// Plays reaction sounds from `Resources/sounds` on top of whatever is playing. They don't go
-/// through the pitch tap, so the key never changes them. A few copies of each are loaded so quick
-/// presses from several phones overlap instead of cutting each other off.
+/// Plays reaction sounds from `Resources/sounds` (real recordings, see `CREDITS.md` there) on top
+/// of whatever is playing. They don't go through the pitch tap, so the key never changes them. A
+/// few copies of each are loaded so quick presses from several phones overlap instead of cutting
+/// each other off.
 @MainActor
 final class ReactionPlayer {
     static let copies = 3
@@ -18,10 +19,10 @@ final class ReactionPlayer {
 
     init() {
         for reaction in Reaction.allCases {
-            guard let url = Bundle.main.url(forResource: reaction.rawValue, withExtension: "wav", subdirectory: "sounds")
-                ?? Bundle.main.url(forResource: reaction.rawValue, withExtension: "wav")
+            guard let url = Bundle.main.url(forResource: reaction.rawValue, withExtension: "m4a", subdirectory: "sounds")
+                ?? Bundle.main.url(forResource: reaction.rawValue, withExtension: "m4a")
             else {
-                Logger.player.error("missing sound \(reaction.rawValue, privacy: .public).wav")
+                Logger.player.error("missing sound \(reaction.rawValue, privacy: .public).m4a")
                 continue
             }
             players[reaction] = (0..<Self.copies).compactMap { _ in
