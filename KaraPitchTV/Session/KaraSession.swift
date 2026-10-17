@@ -1,0 +1,186 @@
+import Foundation
+import Observation
+import SmartTubeIOSCore
+import os
+
+enum Phase: Equatable {
+    case idle
+    case upNext(QueueEntry, secondsLeft: Int)
+    case playing(QueueEntry)
+}
+
+/// Runs the night: waits for a ready song, counts it in, plays it, and moves on. While the app
+/// isn't active the session waits, and a song cut off that way goes back to the front of the queue.
+/// A port of the Android `KaraSession.kt`.
+@MainActor @Observable
+final class KaraSession {
+    static let countInSeconds = 5
+    static let noticeDuration: Duration = .seconds(2)
+    private static let retryCodes: Set<Int> = [403, 410]
+    static let backConfirm: Duration = .seconds(3)
+
+    let store: QueueStore
+    let player = KaraPlayer()
+    private(set) var phase = Phase.idle
+    /// Mirrors `store.state` for the screens.
+    private(set) var queue = QueueState()
+    /// A short message for the TV screen, cleared after `noticeDuration`.
+    private(set) var notice: String?
+
+    @ObservationIgnored private let resolver: StreamResolver
+    @ObservationIgnored private var isActive = false
+    @ObservationIgnored private var startNowRequested = false
+    @ObservationIgnored private var waiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored private var noticeID = 0
+    @ObservationIgnored private var lastBackAt: ContinuousClock.Instant?
+    @ObservationIgnored private var tasks: [Task<Void, Never>] = []
+
+    init(api: InnerTubeAPI = InnerTubeAPI()) {
+        let resolver = StreamResolver(api: api)
+        self.resolver = resolver
+        store = QueueStore { url in
+            guard let id = YouTubeURL.videoID(of: url) else { throw StreamResolverError.noPlayableStream(videoID: url, attempts: []) }
+            return try await resolver.meta(videoID: id)
+        }
+    }
+
+    func start() {
+        guard tasks.isEmpty else { return }
+        tasks = [
+            Task { [store] in
+                for await state in await store.updates() {
+                    self.queue = state
+                    self.wake()
+                }
+            },
+            Task { await loop() },
+        ]
+    }
+
+    /// Follows `scenePhase`: leaving the screen stops the song and requeues it.
+    func setActive(_ active: Bool) {
+        isActive = active
+        if active { player.reattach() } else { player.release() }
+        wake()
+    }
+
+    /// Select on the remote during the up-next countdown.
+    func startNow() {
+        startNowRequested = true
+        wake()
+    }
+
+    func adjustKey(_ delta: Int) {
+        player.adjustKey(delta)
+        notify(Key.label(player.key))
+    }
+
+    func skip(notice: String) {
+        notify(notice)
+        player.skip()
+    }
+
+    /// Back while a song plays: the first press warns, a second within `backConfirm` stops the song.
+    func backPressed() {
+        let now = ContinuousClock.now
+        if let last = lastBackAt, now - last < Self.backConfirm {
+            lastBackAt = nil
+            skip(notice: "Stopped")
+        } else {
+            lastBackAt = now
+            notify("Press Back again to stop this song")
+        }
+    }
+
+    /// Singer names in the queue, the most recently queued first, then the one singing now.
+    func recentSingers(limit: Int = 6) -> [String] {
+        var seen = Set<String>()
+        return (queue.queue.reversed().map(\.singer) + [queue.nowPlaying?.singer].compactMap { $0 })
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    func notify(_ message: String) {
+        noticeID += 1
+        let id = noticeID
+        notice = message
+        Task {
+            try? await Task.sleep(for: Self.noticeDuration)
+            if noticeID == id { notice = nil }
+        }
+    }
+
+    // MARK: - The loop
+
+    private func loop() async {
+        while !Task.isCancelled {
+            await waitUntil { self.isActive && self.queue.firstReady() != nil }
+            guard await countIn(), isActive, let entry = await store.startNext() else { continue }
+            let outcome = await play(entry)
+            if outcome == .released { await store.requeueNowPlaying() } else { await store.finishNowPlaying() }
+            phase = .idle
+        }
+    }
+
+    /// The 5 s "Up next" card. False when there's nothing left to start or the app went away.
+    private func countIn() async -> Bool {
+        startNowRequested = false  // drop a stale press
+        for left in stride(from: Self.countInSeconds, through: 1, by: -1) {
+            guard isActive, let next = queue.firstReady() else {
+                phase = .idle
+                return false
+            }
+            phase = .upNext(next, secondsLeft: left)
+            let deadline = ContinuousClock.now + .seconds(1)
+            while ContinuousClock.now < deadline, !startNowRequested, isActive {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            if startNowRequested { break }
+        }
+        return true
+    }
+
+    private func play(_ entry: QueueEntry) async -> Outcome {
+        phase = .playing(entry)
+        var key = entry.presetKey
+        var startAt = 0.0
+        for attempt in 0...1 {
+            let streams: Streams
+            do {
+                guard let id = YouTubeURL.videoID(of: entry.url) else { throw StreamResolverError.noPlayableStream(videoID: entry.url, attempts: []) }
+                streams = try await resolver.resolve(videoID: id)
+            } catch {
+                Logger.player.error("resolve failed for \(entry.url, privacy: .public): \(String(describing: error), privacy: .public)")
+                notify("Couldn't load “\(entry.title)”. Skipping it.")
+                return .error(httpCode: nil, position: 0, message: String(describing: error))
+            }
+            guard isActive else { return .released }
+            let outcome = await player.play(streams, startKey: key, startAt: startAt)
+            if case let .error(code, position, message) = outcome {
+                Logger.player.error("playback failed for \(entry.url, privacy: .public): \(code ?? 0) \(message ?? "", privacy: .public)")
+                if attempt == 0, let code, Self.retryCodes.contains(code) {
+                    // The URLs expired: resolve again and resume where it stopped, at the same key.
+                    key = player.key
+                    startAt = position
+                    continue
+                }
+                notify("Couldn't play “\(entry.title)”. Skipping it.")
+            }
+            return outcome
+        }
+        return .error(httpCode: nil, position: 0, message: nil)
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async {
+        while !condition() {
+            await withCheckedContinuation { waiters.append($0) }
+        }
+    }
+
+    private func wake() {
+        let ready = waiters
+        waiters = []
+        ready.forEach { $0.resume() }
+    }
+}

@@ -1,0 +1,68 @@
+import SwiftUI
+
+/// Shown while nothing is ready to play: the heading and the next songs in the queue. The phone
+/// URL and QR code arrive with the server (Phase 3), and Search with TV search (Phase 5).
+struct IdleView: View {
+    let session: KaraSession
+    #if DEBUG
+    @State private var showProbe = false
+    @State private var seeding = false
+    #endif
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Karaoke").font(.system(size: 104, weight: .black)).foregroundStyle(Theme.text)
+            Capsule().fill(Theme.accent).frame(width: 240, height: 12).padding(.top, 12)
+            Text("Add songs from your phone").font(.system(size: 48, weight: .semibold)).foregroundStyle(Theme.text)
+                .padding(.top, 56)
+            UpNextList(queue: session.queue.queue).padding(.top, 56)
+            Spacer()
+            #if DEBUG
+            HStack(spacing: 40) {
+                Button(seeding ? "Adding…" : "Add test songs") {
+                    seeding = true
+                    Task {
+                        await DebugSeed.addTestSongs(to: session)
+                        seeding = false
+                    }
+                }
+                .disabled(seeding)
+                Button("Stream probe") { showProbe = true }
+            }
+            #endif
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, 112)
+        .padding(.vertical, 80)
+        #if DEBUG
+        .fullScreenCover(isPresented: $showProbe) { ProbeView() }
+        #endif
+    }
+}
+
+private struct UpNextList: View {
+    let queue: [QueueEntry]
+
+    var body: some View {
+        if !queue.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("UP NEXT").font(.system(size: 28, weight: .bold)).kerning(4).foregroundStyle(Theme.textDim)
+                ForEach(Array(queue.prefix(5).enumerated()), id: \.element.id) { index, entry in
+                    HStack(spacing: 20) {
+                        Text("\(index + 1)").font(.system(size: 36, weight: .bold)).foregroundStyle(Theme.pink).frame(width: 56, alignment: .leading)
+                        Text(line(entry)).font(.system(size: 36)).lineLimit(1)
+                            .foregroundStyle(entry.status == .error ? Theme.textDim : Theme.text)
+                        if entry.presetKey != 0 { KeyChip(key: entry.presetKey) }
+                    }
+                }
+                if queue.count > 5 {
+                    Text("+ \(queue.count - 5) more").font(.system(size: 32)).foregroundStyle(Theme.textDim)
+                }
+            }
+        }
+    }
+
+    private func line(_ entry: QueueEntry) -> String {
+        (entry.singer.isEmpty ? "" : "\(entry.singer) · ") + (entry.status == .resolving ? "Getting ready…" : entry.title)
+    }
+}

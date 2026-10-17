@@ -3,33 +3,22 @@ import SwiftUI
 @main
 struct KaraPitchTVApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    @State private var session = KaraSession()
 
     var body: some Scene {
         WindowGroup {
-            // `-autoSpike` (launch argument) skips the menu, for driving the spike from simctl.
-            if ProcessInfo.processInfo.arguments.contains("-autoSpike") {
-                SpikeView()
-            } else {
-                SpikeMenu()
-            }
+            RootView(session: session)
+                .task {
+                    session.start()
+                    #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("-seed") { await DebugSeed.addTestSongs(to: session) }
+                    #endif
+                }
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            // Keeps the screensaver away on every screen, idle included.
             UIApplication.shared.isIdleTimerDisabled = phase == .active
-        }
-    }
-}
-
-/// Spike 0 entry point: the pitch spike, plus the stream probe in debug builds.
-private struct SpikeMenu: View {
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 40) {
-                Text("Kara Pitch — Spike 0").font(.largeTitle.bold())
-                NavigationLink("Pitch spike") { SpikeView() }
-                #if DEBUG
-                NavigationLink("Stream probe") { ProbeView() }
-                #endif
-            }
+            session.setActive(phase == .active)
         }
     }
 }

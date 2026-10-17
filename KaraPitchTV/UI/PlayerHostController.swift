@@ -2,13 +2,21 @@ import AVFoundation
 import SwiftUI
 import UIKit
 
-/// Full-screen `AVPlayerLayer` that hands Siri Remote presses to `onPress`.
-///
-/// Presses are read as `UIPress` types so directional *clicks* stay apart from swipes. Menu is
-/// passed on to the system so Back still leaves the screen.
+/// What the Siri Remote asks of the player (SPEC §6.2).
+enum RemoteAction: Equatable {
+    case keyUp, keyDown, seekBack, seekForward, skip, togglePause, back
+}
+
+/// Full-screen `AVPlayerLayer` that reads the Siri Remote as `UIPress` types, so directional
+/// *clicks* stay apart from swipes. Holding right for `holdToSkip` skips instead of seeking.
 final class PlayerHostController: UIViewController {
-    var onPress: (UIPress.PressType) -> Void = { _ in }
+    static let holdToSkip: Duration = .seconds(1)
+
+    var onAction: (RemoteAction) -> Void = { _ in }
     private let player: AVPlayer
+    /// Bumped on each right press, so a hold timer can tell whether it's still the same press.
+    private var rightPress = 0
+    private var rightHeldToSkip = false
 
     init(player: AVPlayer) {
         self.player = player
@@ -29,10 +37,46 @@ final class PlayerHostController: UIViewController {
     override var preferredFocusEnvironments: [any UIFocusEnvironment] { [view] }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        let handled: [UIPress.PressType] = [.upArrow, .downArrow, .leftArrow, .rightArrow, .select, .playPause]
-        let mine = presses.filter { handled.contains($0.type) }
-        mine.forEach { onPress($0.type) }
-        if mine.count < presses.count { super.pressesBegan(presses.subtracting(mine), with: event) }
+        var unhandled = Set<UIPress>()
+        for press in presses {
+            switch press.type {
+            case .upArrow: onAction(.keyUp)
+            case .downArrow: onAction(.keyDown)
+            case .leftArrow: onAction(.seekBack)
+            case .rightArrow: rightDown()
+            case .select, .playPause: onAction(.togglePause)
+            case .menu: onAction(.back)
+            default: unhandled.insert(press)
+            }
+        }
+        if !unhandled.isEmpty { super.pressesBegan(unhandled, with: event) }
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if presses.contains(where: { $0.type == .rightArrow }) { rightUp(seek: true) }
+        super.pressesEnded(presses, with: event)
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if presses.contains(where: { $0.type == .rightArrow }) { rightUp(seek: false) }
+        super.pressesCancelled(presses, with: event)
+    }
+
+    private func rightDown() {
+        rightPress += 1
+        rightHeldToSkip = false
+        let press = rightPress
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.holdToSkip)
+            guard let self, self.rightPress == press else { return }
+            self.rightHeldToSkip = true
+            self.onAction(.skip)
+        }
+    }
+
+    private func rightUp(seek: Bool) {
+        if seek && !rightHeldToSkip { onAction(.seekForward) }
+        rightPress += 1  // cancels the hold timer
     }
 }
 
@@ -44,15 +88,15 @@ private final class PlayerLayerView: UIView {
 
 struct PlayerHost: UIViewControllerRepresentable {
     let player: AVPlayer
-    let onPress: (UIPress.PressType) -> Void
+    let onAction: (RemoteAction) -> Void
 
     func makeUIViewController(context: Context) -> PlayerHostController {
         let controller = PlayerHostController(player: player)
-        controller.onPress = onPress
+        controller.onAction = onAction
         return controller
     }
 
     func updateUIViewController(_ controller: PlayerHostController, context: Context) {
-        controller.onPress = onPress
+        controller.onAction = onAction
     }
 }

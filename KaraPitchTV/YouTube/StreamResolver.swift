@@ -103,6 +103,19 @@ struct StreamResolver: Sendable {
         throw StreamResolverError.noPlayableStream(videoID: videoID, attempts: attempts)
     }
 
+    /// Title, channel, thumbnail and length for a pasted link, from the first client that answers.
+    func meta(videoID: String) async throws -> VideoMeta {
+        var attempts: [String] = []
+        for client in clients {
+            do {
+                return VideoMeta(try await client.fetch(api, videoID: videoID).video)
+            } catch {
+                attempts.append("\(client.rawValue): \(error)")
+            }
+        }
+        throw StreamResolverError.noPlayableStream(videoID: videoID, attempts: attempts)
+    }
+
     /// The best `avc1` video-only MP4 up to 1080p plus the best AAC audio-only M4A, else the best
     /// muxed `avc1`+`mp4a` MP4. AVFoundation can't play VP9, WebM or AV1 here, and HLS defeats the
     /// audio tap, so neither is ever picked.
@@ -138,4 +151,15 @@ struct StreamResolver: Sendable {
 
     /// Muxed formats list two codecs, e.g. `codecs="avc1.42001E, mp4a.40.2"`.
     private static func isMuxed(_ f: VideoFormat) -> Bool { f.mimeType.contains(",") }
+}
+
+extension VideoMeta {
+    init(_ video: Video) {
+        self.init(
+            title: video.title,
+            uploader: video.channelTitle.isEmpty ? nil : video.channelTitle,
+            thumb: (video.thumbnailURL ?? URL(string: "https://i.ytimg.com/vi/\(video.id)/hqdefault.jpg"))?.absoluteString,
+            durationSec: Int64(video.duration ?? 0)
+        )
+    }
 }
