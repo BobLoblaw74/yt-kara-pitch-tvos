@@ -3,11 +3,12 @@
 A karaoke player for Apple TV: YouTube videos at ±6 semitones, a LAN queue filled from phones, and
 Siri Remote search. See [`SPEC.md`](SPEC.md) and [`PLAN.md`](PLAN.md).
 
-**Status:** Spike 0. The app currently opens a menu with the pitch spike and (in debug builds) the
-stream probe. Record on-device results in [`docs/adr/0001-pitch-shift.md`](docs/adr/0001-pitch-shift.md).
+**Status:** Spike 0 passed on the device with Approach A
+([ADR 0001](docs/adr/0001-pitch-shift.md)). Phase 2 (playback and queue) is next.
 
 ## Build
-Needs Xcode 16+ and `../SmartTubeIOS` checked out next to this repo (it's a local package for now).
+Needs Xcode 16+. SmartTubeIOS is a pinned git submodule: clone with `--recurse-submodules`, or run
+`git submodule update --init` after cloning.
 The first package resolve also fetches Firebase, which only SmartTube's UI target uses, so it's slow.
 
 ```sh

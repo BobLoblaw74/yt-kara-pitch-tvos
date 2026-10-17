@@ -1,6 +1,6 @@
 # ADR 0001: Pitch shifting on tvOS
 
-Status: **proposed**. Fill in after running Spike 0 on the Apple TV.
+Status: **accepted** (2026-10-16). Approach A works on the Apple TV.
 
 ## Context
 AVPlayer can't change pitch at a fixed rate, and audio taps don't run on HLS. SPEC §4 proposes
@@ -38,12 +38,20 @@ composition. It doesn't prove audio quality, sync or real-time load on the A15.
 | No crackles or dropouts; tap load | | tap load %: |
 | 403/410 mid-song recovered by re-resolve + resume | | |
 
+The user ran the spike on the Apple TV 4K and reported that it "worked perfectly": 1080p playback,
+audible key changes from −6 to +6 with the tempo unchanged, sync held through seeks and
+pause/resume, and no dropouts. No per-check numbers were recorded. The 403/410 recovery check
+moves to Phase 2, where `KaraSession` implements re-resolve and resume.
+
 ## Decision
-_A or B, and why._
+**Approach A.** Use an `AVMutableComposition` of the direct visionOS/androidVR MP4 streams, with an
+`MTAudioProcessingTap` running NewTimePitch. Approach B (AVAudioEngine) isn't built. SmartTubeIOS
+is pinned as the git submodule `Vendor/SmartTubeIOS` at `e659ce9`. A SwiftPM git dependency can't
+be used because its `Package.swift` isn't at the repo root.
 
 ## Known gaps
 - `VideoFormat` has no itag, audio-track or original-language field, so the audio pick is "best
   AAC by bitrate". Multi-language uploads may pick a dub. Needs a small upstream addition.
 - Client User-Agents are `package`-scoped in SmartTubeIOSCore and copied into `StreamClient`.
 - Deployment target is tvOS 18 (not 17) for `Synchronization.Atomic` in the tap.
-- SmartTubeIOS is a local package; pin a git commit once this ADR is accepted.
+- Update SmartTubeIOS with `git -C Vendor/SmartTubeIOS pull`, re-run the probe, and commit the new pin.

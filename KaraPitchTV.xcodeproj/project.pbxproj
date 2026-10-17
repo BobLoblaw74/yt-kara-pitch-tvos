@@ -151,7 +151,7 @@
 			mainGroup = KP0000000000000000000701;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				KP0000000000000000000D01 /* XCLocalSwiftPackageReference "../SmartTubeIOS/SmartTubeIOS" */,
+				KP0000000000000000000D01 /* XCLocalSwiftPackageReference "Vendor/SmartTubeIOS/SmartTubeIOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = KP0000000000000000000702 /* Products */;
@@ -260,7 +260,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 5T82NE8EX4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kara Pitch";
@@ -283,7 +283,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 5T82NE8EX4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kara Pitch";
@@ -364,9 +364,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		KP0000000000000000000D01 /* XCLocalSwiftPackageReference "../SmartTubeIOS/SmartTubeIOS" */ = {
+		KP0000000000000000000D01 /* XCLocalSwiftPackageReference "Vendor/SmartTubeIOS/SmartTubeIOS" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../SmartTubeIOS/SmartTubeIOS;
+			relativePath = Vendor/SmartTubeIOS/SmartTubeIOS;
 		};
 /* End XCLocalSwiftPackageReference section */
 
