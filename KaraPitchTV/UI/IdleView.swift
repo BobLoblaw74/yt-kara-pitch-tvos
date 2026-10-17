@@ -1,20 +1,51 @@
 import SwiftUI
 
-/// Shown while nothing is ready to play: the heading and the next songs in the queue. The phone
-/// URL and QR code arrive with the server (Phase 3), and Search with TV search (Phase 5).
+/// Shown while nothing is ready to play: the heading, the phone URL with its QR code, and the next
+/// songs in the queue. Search arrives with TV search (Phase 5).
 struct IdleView: View {
+    static let addressRefresh: Duration = .seconds(15)
+
     let session: KaraSession
+    @State private var phoneURL = LocalAddress.phoneURL()
     #if DEBUG
     @State private var showProbe = false
     @State private var seeding = false
     #endif
 
     var body: some View {
+        HStack(alignment: .center, spacing: 80) {
+            details
+            if let phoneURL, let qr = QRCode.image(for: phoneURL) {
+                Image(uiImage: qr)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 520, height: 520)
+                    .padding(28)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 32))
+                    .accessibilityLabel("QR code for \(phoneURL)")
+            }
+        }
+        .padding(.horizontal, 112)
+        .padding(.vertical, 80)
+        .task {
+            while !Task.isCancelled {
+                phoneURL = LocalAddress.phoneURL()
+                try? await Task.sleep(for: Self.addressRefresh)
+            }
+        }
+        #if DEBUG
+        .fullScreenCover(isPresented: $showProbe) { ProbeView() }
+        #endif
+    }
+
+    private var details: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Karaoke").font(.system(size: 104, weight: .black)).foregroundStyle(Theme.text)
             Capsule().fill(Theme.accent).frame(width: 240, height: 12).padding(.top, 12)
             Text("Add songs from your phone").font(.system(size: 48, weight: .semibold)).foregroundStyle(Theme.text)
                 .padding(.top, 56)
+            Text("Scan the code, or open").font(.system(size: 36)).foregroundStyle(Theme.textDim).padding(.top, 28)
+            Text(phoneURL ?? "No network").font(.system(size: 52, weight: .bold)).foregroundStyle(Theme.orange)
             UpNextList(queue: session.queue.queue).padding(.top, 56)
             Spacer()
             #if DEBUG
@@ -32,11 +63,6 @@ struct IdleView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.horizontal, 112)
-        .padding(.vertical, 80)
-        #if DEBUG
-        .fullScreenCover(isPresented: $showProbe) { ProbeView() }
-        #endif
     }
 }
 

@@ -4,7 +4,7 @@ A karaoke player for Apple TV: YouTube videos at ±6 semitones, a LAN queue fill
 Siri Remote search. See [`SPEC.md`](SPEC.md) and [`PLAN.md`](PLAN.md).
 
 **Status:** Spike 0 passed on the device with Approach A
-([ADR 0001](docs/adr/0001-pitch-shift.md)). Phase 2 (playback and queue) is next.
+([ADR 0001](docs/adr/0001-pitch-shift.md)). Playback, queue, phone web UI and HTTP API on :8080 are in; TV polish (Phase 4) is next.
 
 ## Build
 Needs Xcode 16+. SmartTubeIOS is a pinned git submodule: clone with `--recurse-submodules`, or run

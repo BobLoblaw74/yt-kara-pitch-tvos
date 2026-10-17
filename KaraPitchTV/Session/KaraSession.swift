@@ -3,7 +3,7 @@ import Observation
 import SmartTubeIOSCore
 import os
 
-enum Phase: Equatable {
+enum Phase: Equatable, Sendable {
     case idle
     case upNext(QueueEntry, secondsLeft: Int)
     case playing(QueueEntry)
@@ -27,6 +27,7 @@ final class KaraSession {
     /// A short message for the TV screen, cleared after `noticeDuration`.
     private(set) var notice: String?
 
+    @ObservationIgnored private let api: InnerTubeAPI
     @ObservationIgnored private let resolver: StreamResolver
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var startNowRequested = false
@@ -37,6 +38,7 @@ final class KaraSession {
 
     init(api: InnerTubeAPI = InnerTubeAPI()) {
         let resolver = StreamResolver(api: api)
+        self.api = api
         self.resolver = resolver
         store = QueueStore { url in
             guard let id = YouTubeURL.videoID(of: url) else { throw StreamResolverError.noPlayableStream(videoID: url, attempts: []) }
@@ -56,6 +58,18 @@ final class KaraSession {
             Task { await loop() },
         ]
     }
+
+    /// The HTTP API over this session's queue and state.
+    func makeRouter() -> Router {
+        Router(
+            store: store,
+            session: { await self.apiView() },
+            search: { [api] query, addKaraoke in try await SearchService.search(query, addKaraoke: addKaraoke, api: api) },
+            webFile: WebFiles.data
+        )
+    }
+
+    private func apiView() -> SessionView { SessionView(phase: phase, player: player.snapshot) }
 
     /// Follows `scenePhase`: leaving the screen stops the song and requeues it.
     func setActive(_ active: Bool) {

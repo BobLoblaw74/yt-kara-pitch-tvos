@@ -6,4 +6,5 @@ extension Logger {
     static let resolver = Logger(subsystem: subsystem, category: "resolver")
     static let probe = Logger(subsystem: subsystem, category: "probe")
     static let player = Logger(subsystem: subsystem, category: "player")
+    static let server = Logger(subsystem: subsystem, category: "server")
 }
