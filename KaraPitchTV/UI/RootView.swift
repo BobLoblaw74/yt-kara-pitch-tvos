@@ -52,6 +52,11 @@ private struct PlayerScreen: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: controlsOpen)
+        // Back must never leave the app mid-song. The player view normally takes it; this catches
+        // it if focus is elsewhere for a moment (the overlay handles its own Back).
+        .onExitCommand {
+            if !controlsOpen { session.backPressed() }
+        }
     }
 
     private func handle(_ action: RemoteAction) {

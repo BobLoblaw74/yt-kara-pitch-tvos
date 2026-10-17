@@ -52,8 +52,11 @@ final class PlayerHostController: UIViewController {
 
     override var preferredFocusEnvironments: [any UIFocusEnvironment] { [view] }
 
+    /// The presses this controller owns. None of their phases may reach `super`: a Menu press whose
+    /// end goes up the responder chain makes tvOS leave the app.
+    private static let handled: Set<UIPress.PressType> = [.upArrow, .downArrow, .leftArrow, .rightArrow, .select, .playPause, .menu]
+
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        var unhandled = Set<UIPress>()
         for press in presses {
             switch press.type {
             case .upArrow: onAction(.keyUp)
@@ -62,20 +65,29 @@ final class PlayerHostController: UIViewController {
             case .rightArrow: rightDown()
             case .select, .playPause: onAction(.togglePause)
             case .menu: onAction(.back)
-            default: unhandled.insert(press)
+            default: break
             }
         }
-        if !unhandled.isEmpty { super.pressesBegan(unhandled, with: event) }
+        forwardUnhandled(presses) { super.pressesBegan($0, with: event) }
+    }
+
+    override func pressesChanged(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        forwardUnhandled(presses) { super.pressesChanged($0, with: event) }
     }
 
     override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         if presses.contains(where: { $0.type == .rightArrow }) { rightUp(seek: true) }
-        super.pressesEnded(presses, with: event)
+        forwardUnhandled(presses) { super.pressesEnded($0, with: event) }
     }
 
     override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         if presses.contains(where: { $0.type == .rightArrow }) { rightUp(seek: false) }
-        super.pressesCancelled(presses, with: event)
+        forwardUnhandled(presses) { super.pressesCancelled($0, with: event) }
+    }
+
+    private func forwardUnhandled(_ presses: Set<UIPress>, to forward: (Set<UIPress>) -> Void) {
+        let unhandled = presses.filter { !Self.handled.contains($0.type) }
+        if !unhandled.isEmpty { forward(unhandled) }
     }
 
     private func rightDown() {
