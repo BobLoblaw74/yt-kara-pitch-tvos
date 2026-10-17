@@ -24,6 +24,25 @@ struct SearchView: View {
     @FocusState private var focus: Focus?
 
     var body: some View {
+        VStack(spacing: 0) {
+            Ticker(state: session.queue).ignoresSafeArea(edges: .top)
+            search
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Theme.background)
+        .defaultFocus($focus, .field)
+        .sheet(item: $picked) { result in
+            QuickAddSheet(result: result, singers: session.recentSingers(), onNewName: session.rememberSinger) { singer, key in
+                Task {
+                    await session.addFromSearch(result, singer: singer, key: key)
+                    picked = nil
+                }
+            }
+        }
+        .onDisappear { searchTask?.cancel() }
+    }
+
+    private var search: some View {
         VStack(alignment: .leading, spacing: 36) {
             HStack {
                 Text("Search songs").font(.system(size: 60, weight: .black)).foregroundStyle(Theme.text)
@@ -46,17 +65,6 @@ struct SearchView: View {
         .padding(.horizontal, 80)
         .padding(.top, 56)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.background)
-        .defaultFocus($focus, .field)
-        .sheet(item: $picked) { result in
-            QuickAddSheet(result: result, singers: session.recentSingers()) { singer, key in
-                Task {
-                    await session.addFromSearch(result, singer: singer, key: key)
-                    picked = nil
-                }
-            }
-        }
-        .onDisappear { searchTask?.cancel() }
     }
 
     @ViewBuilder

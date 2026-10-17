@@ -1,18 +1,23 @@
 import SwiftUI
 
 /// Who's singing and in which key, with as few remote presses as possible: Select on a singer,
-/// Select on Add. Names can be fixed later from a phone.
+/// Select on Add. "New name" opens the keyboard for a singer who isn't in the list yet.
 struct QuickAddSheet: View {
     let result: SearchResult
     let singers: [String]
+    /// A name typed with "New name", so the session can offer it again later.
+    let onNewName: (String) -> Void
     let onAdd: (_ singer: String, _ key: Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var singer = ""
+    /// Names typed in this sheet, shown first so the new one is easy to see and pick again.
+    @State private var typed: [String] = []
+    @State private var draft = ""
     @State private var key = 0
     @State private var adding = false
 
-    private enum Focus: Hashable { case singer(String), key, add }
+    private enum Focus: Hashable { case singer(String), newName, key, add }
     @FocusState private var focus: Focus?
 
     var body: some View {
@@ -23,7 +28,7 @@ struct QuickAddSheet: View {
             Text("Who's singing?").font(.system(size: 30)).foregroundStyle(Theme.textDim).padding(.top, 48)
             ScrollView(.horizontal) {
                 HStack(spacing: 24) {
-                    ForEach(singers + [""], id: \.self) { name in
+                    ForEach(names + [""], id: \.self) { name in
                         Button {
                             singer = name
                             focus = .add
@@ -36,6 +41,12 @@ struct QuickAddSheet: View {
                         }
                         .focused($focus, equals: .singer(name))
                     }
+                    // Select opens the tvOS keyboard; submitting picks the name.
+                    TextField("New name", text: $draft)
+                        .frame(width: 360)
+                        .submitLabel(.done)
+                        .onSubmit(saveDraft)
+                        .focused($focus, equals: .newName)
                 }
                 .padding(.vertical, 24)
             }
@@ -60,6 +71,21 @@ struct QuickAddSheet: View {
         .padding(64)
         .frame(width: 1200, alignment: .leading)
         .defaultFocus($focus, .singer(singers.first ?? ""))
+    }
+
+    private var names: [String] {
+        typed + singers.filter { !typed.contains($0) }
+    }
+
+    private func saveDraft() {
+        let name = String(draft.trimmingCharacters(in: .whitespacesAndNewlines).prefix(QueueStore.maxSinger))
+        draft = ""
+        guard !name.isEmpty else { return }
+        typed.removeAll { $0 == name }
+        typed.insert(name, at: 0)
+        singer = name
+        focus = .add
+        onNewName(name)
     }
 }
 

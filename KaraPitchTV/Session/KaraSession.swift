@@ -31,6 +31,9 @@ final class KaraSession {
     var searchOpen = false
     /// The "added to queue" banner showing now. Songs queued in a burst each get their turn.
     private(set) var banner: QueueEntry?
+    /// Every singer seen while the app is open, most recently used first. Names stay after their
+    /// songs leave the queue, and go when the app quits.
+    private(set) var singers: [String] = []
 
     @ObservationIgnored private let api: InnerTubeAPI
     @ObservationIgnored private let resolver: StreamResolver
@@ -57,12 +60,18 @@ final class KaraSession {
             Task { [store] in
                 for await state in await store.updates() {
                     self.queue = state
+                    // Picks up names from phones, including renames, without reordering known ones.
+                    for name in ([state.nowPlaying].compactMap { $0 } + state.queue).map(\.singer)
+                    where !self.singers.contains(name) {
+                        self.rememberSinger(name)
+                    }
                     self.wake()
                 }
             },
             Task { await loop() },
             Task { [store] in
                 for await entry in store.added {
+                    self.rememberSinger(entry.singer)
                     self.banner = entry
                     try? await Task.sleep(for: Self.bannerDuration)
                     self.banner = nil
@@ -133,13 +142,17 @@ final class KaraSession {
         }
     }
 
-    /// Singer names in the queue, the most recently queued first, then the one singing now.
-    func recentSingers(limit: Int = 6) -> [String] {
-        var seen = Set<String>()
-        return (queue.queue.reversed().map(\.singer) + [queue.nowPlaying?.singer].compactMap { $0 })
-            .filter { !$0.isEmpty && seen.insert($0).inserted }
-            .prefix(limit)
-            .map { $0 }
+    /// Names for the TV's quick-add sheet, most recently used first.
+    func recentSingers(limit: Int = 12) -> [String] {
+        Array(singers.prefix(limit))
+    }
+
+    /// Moves `name` to the front of `singers`, adding it if it's new. Empty names are ignored.
+    func rememberSinger(_ name: String) {
+        let name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(QueueStore.maxSinger))
+        guard !name.isEmpty else { return }
+        singers.removeAll { $0 == name }
+        singers.insert(name, at: 0)
     }
 
     func notify(_ message: String) {
