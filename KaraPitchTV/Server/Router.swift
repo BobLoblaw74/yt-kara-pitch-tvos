@@ -8,13 +8,15 @@ struct SessionView: Sendable {
 }
 
 /// Routes one request to the queue, the session and the bundled web UI, answering exactly as the
-/// Android app's Ktor server does.
+/// Android app's Ktor server does. `POST /api/react/{reaction}` is TV-only.
 struct Router: Sendable {
     let store: QueueStore
     let session: @Sendable () async -> SessionView
     let search: @Sendable (_ query: String, _ addKaraoke: Bool) async throws -> [SearchResult]
     /// The bytes of a bundled web file (`index.html`, `app.js`, …), or nil.
     let webFile: @Sendable (_ path: String) -> Data?
+    /// Plays an audience reaction on the TV.
+    var react: @Sendable (Reaction) async -> Void = { _ in }
 
     func handle(_ request: HTTPRequest) async -> HTTPResponse {
         var response = await route(request)
@@ -52,6 +54,10 @@ struct Router: Sendable {
             return await store.move(id: api[1], to: body.index) ? HTTPResponse(status: 204) : notFound()
         case ("DELETE", 2) where api[0] == "queue":
             return await store.remove(id: api[1]) ? HTTPResponse(status: 204) : notFound()
+        case ("POST", 2) where api[0] == "react":
+            guard let reaction = Reaction(rawValue: api[1]) else { return notFound() }
+            await react(reaction)
+            return HTTPResponse(status: 204)
         default:
             return notFound()
         }

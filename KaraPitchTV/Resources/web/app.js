@@ -219,3 +219,42 @@ $("editDialog").addEventListener("close", () => {
 refresh();
 setInterval(() => { if (!document.hidden) refresh(); }, POLL_MS);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+
+// ---------- reactions ----------
+// The four buttons sit behind a Reactions button so they aren't pressed by accident, and fold
+// away again after a few seconds without a press.
+const REACTIONS_OPEN_MS = 5000;
+// A short cooldown per button keeps one phone from flooding the TV with the same sound.
+const REACTION_COOLDOWN_MS = 800;
+const reactionsToggle = $("reactionsToggle");
+const reactionButtons = $("reactionButtons");
+let reactionsTimer = null;
+
+function showReactions(open) {
+  reactionButtons.hidden = !open;
+  reactionsToggle.hidden = open;
+  reactionsToggle.setAttribute("aria-expanded", String(open));
+  clearTimeout(reactionsTimer);
+  if (open) reactionsTimer = setTimeout(() => showReactions(false), REACTIONS_OPEN_MS);
+}
+
+reactionsToggle.addEventListener("click", () => showReactions(true));
+
+document.querySelectorAll("[data-reaction]").forEach((button) => {
+  let lastSent = 0;
+  button.addEventListener("click", async () => {
+    showReactions(true); // restarts the countdown
+    const now = Date.now();
+    if (now - lastSent < REACTION_COOLDOWN_MS) return;
+    lastSent = now;
+    button.classList.remove("sent", "failed");
+    void button.offsetWidth; // restart the animation on repeat presses
+    try {
+      await api("POST", `/api/react/${button.dataset.reaction}`);
+      button.classList.add("sent");
+    } catch {
+      button.classList.add("failed");
+    }
+    setTimeout(() => button.classList.remove("sent", "failed"), 600);
+  });
+});

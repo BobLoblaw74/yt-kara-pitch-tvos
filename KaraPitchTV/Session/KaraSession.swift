@@ -22,6 +22,7 @@ final class KaraSession {
 
     let store: QueueStore
     let player = KaraPlayer()
+    let reactions = ReactionPlayer()
     private(set) var phase = Phase.idle
     /// Mirrors `store.state` for the screens.
     private(set) var queue = QueueState()
@@ -87,7 +88,8 @@ final class KaraSession {
             store: store,
             session: { await self.apiView() },
             search: { [api] query, addKaraoke in try await SearchService.search(query, addKaraoke: addKaraoke, api: api) },
-            webFile: WebFiles.data
+            webFile: WebFiles.data,
+            react: { reaction in await self.reactions.play(reaction) }
         )
     }
 

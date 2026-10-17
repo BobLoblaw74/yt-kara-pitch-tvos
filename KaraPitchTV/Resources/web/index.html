@@ -74,6 +74,18 @@
     </section>
   </main>
 
+  <nav class="reactions" aria-label="Audience reactions">
+    <button type="button" id="reactionsToggle" class="reactions-toggle" aria-expanded="false" aria-controls="reactionButtons">
+      <span aria-hidden="true">🎉</span>Reactions
+    </button>
+    <div id="reactionButtons" class="reaction-buttons" hidden>
+      <button type="button" data-reaction="clap"><span aria-hidden="true">👏</span>Clap</button>
+      <button type="button" data-reaction="ovation"><span aria-hidden="true">🙌</span>Ovation</button>
+      <button type="button" data-reaction="boo"><span aria-hidden="true">👎</span>Booo</button>
+      <button type="button" data-reaction="laugh"><span aria-hidden="true">😂</span>Laugh</button>
+    </div>
+  </nav>
+
   <template id="result">
     <li class="result">
       <img class="thumb" alt="">

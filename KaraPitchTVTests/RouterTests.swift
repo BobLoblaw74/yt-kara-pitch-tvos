@@ -15,9 +15,16 @@ struct RouterTests {
         }
     }
 
+    private final class ReactionLog: Sendable {
+        private let value = Mutex<[Reaction]>([])
+        var all: [Reaction] { value.withLock { $0 } }
+        func append(_ reaction: Reaction) { value.withLock { $0.append(reaction) } }
+    }
+
     private final class Fixture: Sendable {
         let store: QueueStore
         let phase = PhaseBox()
+        let reactions = ReactionLog()
         let router: Router
 
         init(searchFails: Bool = false) {
@@ -28,6 +35,7 @@ struct RouterTests {
             )
             self.store = store
             let phase = phase
+            let reactions = reactions
             router = Router(
                 store: store,
                 session: { SessionView(phase: phase.phase, player: PlayerSnapshot(positionMs: 1500, durationMs: 200_000, key: 2)) },
@@ -35,7 +43,8 @@ struct RouterTests {
                     if searchFails { throw Failed() }
                     return [SearchResult(url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "\(query) \(karaoke)", durationSec: 212)]
                 },
-                webFile: { $0 == "index.html" ? Data("<html>".utf8) : $0 == "app.js" ? Data("js".utf8) : nil }
+                webFile: { $0 == "index.html" ? Data("<html>".utf8) : $0 == "app.js" ? Data("js".utf8) : nil },
+                react: { reaction in reactions.append(reaction) }
             )
         }
 
@@ -169,6 +178,15 @@ struct RouterTests {
         #expect(empty.status == 400)
         #expect(try object(empty)["error"] as? String == "Type something to search for")
         #expect(await Fixture(searchFails: true).send("GET", "/api/search?q=abba").status == 502)
+    }
+
+    @Test func reactions() async {
+        let f = Fixture()
+        #expect(await f.send("POST", "/api/react/clap").status == 204)
+        #expect(await f.send("POST", "/api/react/laugh").status == 204)
+        #expect(await f.send("POST", "/api/react/whistle").status == 404)
+        #expect(await f.send("GET", "/api/react/boo").status == 404)
+        #expect(f.reactions.all == [.clap, .laugh])
     }
 
     @Test func corsPreflight() async {
