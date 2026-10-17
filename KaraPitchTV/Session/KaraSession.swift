@@ -122,8 +122,13 @@ final class KaraSession {
         player.skip()
     }
 
-    func search(_ query: String, addKaraoke: Bool) async throws -> [SearchResult] {
-        try await SearchService.search(query, addKaraoke: addKaraoke, api: api)
+    /// A TV search that loads its results a batch at a time.
+    func searchPager(_ query: String, addKaraoke: Bool) -> SearchPager {
+        let q = SearchService.buildQuery(query, addKaraoke: addKaraoke)
+        return SearchPager { [api] token in
+            let group = try await api.search(query: q, continuationToken: token, filter: .default)
+            return (SearchService.songs(from: group.videos), group.nextPageToken)
+        }
     }
 
     /// Adds a search result picked on the TV; it's ready at once since the result carries its details.

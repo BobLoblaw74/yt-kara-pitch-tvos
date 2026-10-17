@@ -19,14 +19,9 @@ struct RootView: View {
                 // Below the ticker.
                 NoticeView(text: notice).padding(.top, 176).transition(.opacity)
             }
-            if let banner = session.banner {
-                AddedBanner(entry: banner, position: (session.queue.queue.firstIndex { $0.id == banner.id } ?? -1) + 1)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            AddedBannerLayer(session: session)
         }
         .animation(.easeInOut(duration: 0.2), value: session.notice)
-        .animation(.easeInOut(duration: 0.35), value: session.banner)
         .fullScreenCover(isPresented: Bindable(session).searchOpen) { SearchView(session: session) }
     }
 }

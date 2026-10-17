@@ -9,6 +9,17 @@ struct SearchServiceTests {
     @Test func noDuplicateKaraoke() { #expect(SearchService.buildQuery("abba Karaoke version", addKaraoke: true) == "abba Karaoke version") }
     @Test func exactWhenOff() { #expect(SearchService.buildQuery("abba", addKaraoke: false) == "abba") }
 
+    @Test func addsTheGenreTerm() {
+        let country = Genre.all.first { $0.name == "Country" }
+        #expect(SearchService.withGenre("  jolene ", country) == "jolene country")
+        #expect(SearchService.withGenre("", country) == "country")
+        #expect(SearchService.withGenre("Country roads", country) == "Country roads")
+        #expect(SearchService.withGenre("jolene", nil) == "jolene")
+        #expect(SearchService.withGenre(" ", nil) == "")
+    }
+
+    @Test func genreNamesAreUnique() { #expect(Set(Genre.all.map(\.id)).count == Genre.all.count) }
+
     @Test func keepsSongLengthVideos() {
         #expect(SearchService.keep(durationSec: 240, isLive: false))
         #expect(SearchService.keep(durationSec: 15 * 60, isLive: false))

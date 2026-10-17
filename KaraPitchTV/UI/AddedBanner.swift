@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// The session's current "added to queue" banner, sliding in at the bottom of whichever screen
+/// shows it: the root view, and the search screen that covers it.
+struct AddedBannerLayer: View {
+    let session: KaraSession
+
+    var body: some View {
+        ZStack {
+            if let banner = session.banner {
+                AddedBanner(entry: banner, position: (session.queue.queue.firstIndex { $0.id == banner.id } ?? -1) + 1)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
+        .animation(.easeInOut(duration: 0.35), value: session.banner)
+    }
+}
+
 /// Slides up from the bottom for a few seconds whenever a song becomes ready to play.
 struct AddedBanner: View {
     let entry: QueueEntry

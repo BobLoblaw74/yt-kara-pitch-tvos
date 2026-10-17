@@ -30,6 +30,11 @@ enum SearchService {
     }
 
     static func results(from videos: [Video]) -> [SearchResult] {
+        Array(songs(from: videos).prefix(maxResults))
+    }
+
+    /// The songs in one page of YouTube results, without duplicates and without a cap.
+    static func songs(from videos: [Video]) -> [SearchResult] {
         var seen = Set<String>()
         return videos.compactMap { video -> SearchResult? in
             let duration = Int64(video.duration ?? 0)
@@ -40,7 +45,5 @@ enum SearchService {
             let meta = VideoMeta(video)
             return SearchResult(url: url, title: meta.title, channel: meta.uploader, thumb: meta.thumb, durationSec: duration)
         }
-        .prefix(maxResults)
-        .map { $0 }
     }
 }
